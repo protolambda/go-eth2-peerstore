@@ -17,11 +17,11 @@ This extends the [Libp2p peerstore](https://github.com/libp2p/go-libp2p-peerstor
 
 ```go
 import (
-	"fmt"
-  ds "github.com/ipfs/go-datastore"
-  "github.com/ipfs/go-datastore/sync"
-  "github.com/libp2p/go-libp2p-peerstore/pstoreds"
-  "github.com/protolambda/go-eth2-peerstore/dstrack"
+    "fmt"
+    ds "github.com/ipfs/go-datastore"
+    "github.com/ipfs/go-datastore/sync"
+    "github.com/libp2p/go-libp2p-peerstore/pstoreds"
+    "github.com/protolambda/go-eth2-peerstore/dstrack"
 )
 
 func main() {
