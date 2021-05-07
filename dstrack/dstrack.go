@@ -16,7 +16,7 @@ import (
 	"github.com/protolambda/go-eth2-peerstore"
 	"github.com/protolambda/go-eth2-peerstore/addrutil"
 	"github.com/protolambda/go-eth2-peerstore/dstee"
-	"github.com/protolambda/zrnt/eth2/beacon"
+	"github.com/protolambda/zrnt/eth2/beacon/common"
 	"io"
 	"sync"
 )
@@ -194,11 +194,11 @@ func (ep *dsExtendedPeerstore) GetAllData(id peer.ID) *eth2peerstore.PeerAllData
 	for _, addr := range ep.Addrs(id) {
 		multiAddrs = append(multiAddrs, addr.String())
 	}
-	var enrAttnets *beacon.AttnetBits
+	var enrAttnets *common.AttnetBits
 
-	var forkDigest *beacon.ForkDigest
-	var nextForkVersion *beacon.Version
-	var nextForkEpoch *beacon.Epoch
+	var forkDigest *common.ForkDigest
+	var nextForkVersion *common.Version
+	var nextForkEpoch *common.Epoch
 
 	en := ep.LatestENR(id)
 	if en != nil {

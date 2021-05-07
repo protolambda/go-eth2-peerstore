@@ -7,7 +7,7 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/peerstore"
 	"github.com/protolambda/go-eth2-peerstore/dstee"
-	"github.com/protolambda/zrnt/eth2/beacon"
+	"github.com/protolambda/zrnt/eth2/beacon/common"
 	"time"
 )
 
@@ -28,17 +28,17 @@ type ENRBook interface {
 
 type StatusBook interface {
 	// Status retrieves the peer status, and may be nil if there is no status
-	Status(peer.ID) *beacon.Status
+	Status(peer.ID) *common.Status
 	// RegisterStatus updates the status of the peer
-	RegisterStatus(peer.ID, beacon.Status)
+	RegisterStatus(peer.ID, common.Status)
 }
 
 type MetadataBook interface {
-	Metadata(peer.ID) *beacon.MetaData
-	ClaimedSeq(peer.ID) (seq beacon.SeqNr, ok bool)
-	RegisterSeqClaim(id peer.ID, seq beacon.SeqNr) (newer bool)
+	Metadata(peer.ID) *common.MetaData
+	ClaimedSeq(peer.ID) (seq common.SeqNr, ok bool)
+	RegisterSeqClaim(id peer.ID, seq common.SeqNr) (newer bool)
 	RegisterMetaFetch(peer.ID) uint64
-	RegisterMetadata(id peer.ID, md beacon.MetaData) (newer bool)
+	RegisterMetadata(id peer.ID, md common.MetaData) (newer bool)
 }
 
 type PeerAllData struct {
@@ -54,18 +54,18 @@ type PeerAllData struct {
 	UserAgent       string `json:"user_agent,omitempty"`
 	ProtocolVersion string `json:"protocol_version,omitempty"`
 
-	ForkDigest      *beacon.ForkDigest `json:"enr_fork_digest,omitempty"`
-	NextForkVersion *beacon.Version    `json:"enr_next_fork_version,omitempty"`
-	NextForkEpoch   *beacon.Epoch      `json:"enr_next_fork_epoch,omitempty"`
+	ForkDigest      *common.ForkDigest `json:"enr_fork_digest,omitempty"`
+	NextForkVersion *common.Version    `json:"enr_next_fork_version,omitempty"`
+	NextForkEpoch   *common.Epoch      `json:"enr_next_fork_epoch,omitempty"`
 
-	Attnets *beacon.AttnetBits `json:"enr_attnets,omitempty"`
+	Attnets *common.AttnetBits `json:"enr_attnets,omitempty"`
 
 	// Metadata with highest sequence number
-	MetaData *beacon.MetaData `json:"metadata,omitempty"`
+	MetaData *common.MetaData `json:"metadata,omitempty"`
 	// Highest claimed seq nr, we may not have the actual corresponding metadata yet.
-	ClaimedSeq beacon.SeqNr `json:"claimed_seq,omitempty"`
+	ClaimedSeq common.SeqNr `json:"claimed_seq,omitempty"`
 	// Latest status
-	Status *beacon.Status `json:"status,omitempty"`
+	Status *common.Status `json:"status,omitempty"`
 	// Latest ENR
 	ENR *enode.Node `json:"enr,omitempty"`
 }

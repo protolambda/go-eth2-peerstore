@@ -16,7 +16,7 @@ import (
 	pstore_pb "github.com/libp2p/go-libp2p-peerstore/pb"
 	"github.com/multiformats/go-base32"
 	"github.com/protolambda/go-eth2-peerstore/addrutil"
-	"github.com/protolambda/zrnt/eth2/beacon"
+	"github.com/protolambda/zrnt/eth2/beacon/common"
 	"github.com/protolambda/ztyp/codec"
 	"net"
 	"sort"
@@ -60,8 +60,8 @@ Peerstore layout, partially due to libp2p legacy:
 type ENRData struct {
 	Raw      string             `json:"raw,omitempty"`
 	Other    map[string]string  `json:"other,omitempty"`
-	Eth2Data *beacon.Eth2Data   `json:"eth2_data,omitempty"`
-	Attnets  *beacon.AttnetBits `json:"attnets,omitempty"`
+	Eth2Data *common.Eth2Data   `json:"eth2_data,omitempty"`
+	Attnets  *common.AttnetBits `json:"attnets,omitempty"`
 	Seq      uint64             `json:"seq,omitempty"`
 	IP       net.IP             `json:"ip,omitempty"`
 	TCP      uint16             `json:"tcp,omitempty"`
@@ -92,9 +92,9 @@ type AddrBookRecord_CertifiedRecord struct {
 }
 
 type Eth2Data struct {
-	Metadata      *beacon.MetaData `json:"metadata,omitempty"`
-	MetadataClaim beacon.SeqNr     `json:"metadata_claim,omitempty"`
-	Status        *beacon.Status   `json:"status,omitempty"`
+	Metadata      *common.MetaData `json:"metadata,omitempty"`
+	MetadataClaim common.SeqNr     `json:"metadata_claim,omitempty"`
+	Status        *common.Status   `json:"status,omitempty"`
 	ENR           *ENRData         `json:"enr,omitempty"`
 }
 
@@ -322,7 +322,7 @@ func ItemToEntry(k ds.Key, v []byte) (id peer.ID, out PartialPeerstoreEntry, err
 			out.Eth2 = &Eth2Data{}
 			switch parts[3] {
 			case "metadata":
-				var md beacon.MetaData
+				var md common.MetaData
 				if e := md.Deserialize(codec.NewDecodingReader(bytes.NewReader(v), uint64(len(v)))); e == nil {
 					out.Eth2.Metadata = &md
 				} else {
@@ -331,13 +331,13 @@ func ItemToEntry(k ds.Key, v []byte) (id peer.ID, out PartialPeerstoreEntry, err
 				}
 			case "metadata_claim":
 				if len(v) == 8 {
-					out.Eth2.MetadataClaim = beacon.SeqNr(binary.LittleEndian.Uint64(v))
+					out.Eth2.MetadataClaim = common.SeqNr(binary.LittleEndian.Uint64(v))
 				} else {
 					err = fmt.Errorf("bad metadata_claim in peerstore, wrong length: claim bytes: %x", v)
 					return
 				}
 			case "status":
-				var st beacon.Status
+				var st common.Status
 				if e := st.Deserialize(codec.NewDecodingReader(bytes.NewReader(v), uint64(len(v)))); e == nil {
 					out.Eth2.Status = &st
 				} else {
