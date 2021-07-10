@@ -2,10 +2,10 @@ package dstrack
 
 import (
 	"fmt"
-	"github.com/ethereum/go-ethereum/p2p/enode"
-	"github.com/ethereum/go-ethereum/p2p/enr"
 	ds "github.com/ipfs/go-datastore"
 	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/protolambda/go-enode"
+	"github.com/protolambda/go-enr"
 	"github.com/protolambda/go-eth2-peerstore"
 	"github.com/protolambda/go-eth2-peerstore/addrutil"
 )

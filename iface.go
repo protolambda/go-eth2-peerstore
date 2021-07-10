@@ -2,10 +2,10 @@ package eth2peerstore
 
 import (
 	"encoding/json"
-	"github.com/ethereum/go-ethereum/p2p/enode"
 	ds "github.com/ipfs/go-datastore"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/peerstore"
+	"github.com/protolambda/go-enode"
 	"github.com/protolambda/go-eth2-peerstore/dstee"
 	"github.com/protolambda/zrnt/eth2/beacon/common"
 	"time"
