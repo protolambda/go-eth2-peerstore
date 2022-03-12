@@ -1,11 +1,12 @@
 package eth2peerstore
 
 import (
+	"context"
 	"encoding/json"
+	"github.com/ethereum/go-ethereum/p2p/enode"
 	ds "github.com/ipfs/go-datastore"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/peerstore"
-	"github.com/protolambda/go-enode"
 	"github.com/protolambda/go-eth2-peerstore/dstee"
 	"github.com/protolambda/zrnt/eth2/beacon/common"
 	"time"
@@ -14,31 +15,31 @@ import (
 // IdentifyBook exposes the peer libp2p-identify info.
 // Libp2p stores this data in the misc-data book
 type IdentifyBook interface {
-	ProtocolVersion(id peer.ID) (string, error)
-	UserAgent(id peer.ID) (string, error)
+	ProtocolVersion(ctx context.Context, id peer.ID) (string, error)
+	UserAgent(ctx context.Context, id peer.ID) (string, error)
 }
 
 type ENRBook interface {
 	// Updates the ENR, if it is has a higher sequence number
-	UpdateENRMaybe(id peer.ID, n *enode.Node) (updated bool, err error)
+	UpdateENRMaybe(ctx context.Context, id peer.ID, n *enode.Node) (updated bool, err error)
 
 	// find the latest enr for the given peer.
-	LatestENR(id peer.ID) (n *enode.Node)
+	LatestENR(ctx context.Context, id peer.ID) (n *enode.Node, err error)
 }
 
 type StatusBook interface {
 	// Status retrieves the peer status, and may be nil if there is no status
-	Status(peer.ID) *common.Status
+	Status(context.Context, peer.ID) (*common.Status, error)
 	// RegisterStatus updates the status of the peer
-	RegisterStatus(peer.ID, common.Status)
+	RegisterStatus(context.Context, peer.ID, common.Status) error
 }
 
 type MetadataBook interface {
-	Metadata(peer.ID) *common.MetaData
-	ClaimedSeq(peer.ID) (seq common.SeqNr, ok bool)
-	RegisterSeqClaim(id peer.ID, seq common.SeqNr) (newer bool)
-	RegisterMetaFetch(peer.ID) uint64
-	RegisterMetadata(id peer.ID, md common.MetaData) (newer bool)
+	Metadata(context.Context, peer.ID) (*common.MetaData, error)
+	ClaimedSeq(context.Context, peer.ID) (seq common.SeqNr, err error)
+	RegisterSeqClaim(ctx context.Context, id peer.ID, seq common.SeqNr) (newer bool, err error)
+	RegisterMetaFetch(context.Context, peer.ID) (uint64, error)
+	RegisterMetadata(ctx context.Context, id peer.ID, md common.MetaData) (newer bool, err error)
 }
 
 type PeerAllData struct {
@@ -83,7 +84,7 @@ func (p *PeerAllData) String() string {
 }
 
 type AllDataGetter interface {
-	GetAllData(id peer.ID) *PeerAllData
+	GetAllData(ctx context.Context, id peer.ID) (*PeerAllData, error)
 }
 
 type TeedDatastore interface {

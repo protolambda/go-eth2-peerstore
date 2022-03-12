@@ -28,9 +28,13 @@ func main() {
     store := sync.MutexWrap(ds.NewMapDatastore())  // or your favorite persisted libp2p datastore (Leveldb, badger, etc.)
     peerstore, err := dstrack.NewExtendedPeerstore(context.Background(), store, pstoreds.DefaultOpts())
     if err != nil {
-    	panic(err)
+        panic(err)
     }
-    fmt.Println(peerstore.GetAllData("peerid....."))
+    data, err := peerstore.GetAllData("peerid.....")
+    if err != nil {
+        panic(err)
+    }
+    fmt.Println(data)
 }
 ```
 

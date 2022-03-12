@@ -105,7 +105,7 @@ func (ep *dsExtendedPeerstore) ListTees() (out []dstee.Tee) {
 	return
 }
 
-func (ep *dsExtendedPeerstore) ProtocolVersion(id peer.ID) (string, error) {
+func (ep *dsExtendedPeerstore) ProtocolVersion(ctx context.Context, id peer.ID) (string, error) {
 	dat, err := ep.Get(id, "ProtocolVersion")
 	if err != nil {
 		return "", err
@@ -117,7 +117,7 @@ func (ep *dsExtendedPeerstore) ProtocolVersion(id peer.ID) (string, error) {
 	return v, nil
 }
 
-func (ep *dsExtendedPeerstore) UserAgent(id peer.ID) (string, error) {
+func (ep *dsExtendedPeerstore) UserAgent(ctx context.Context, id peer.ID) (string, error) {
 	dat, err := ep.Get(id, "AgentVersion") // actually called AgentVersion in store.
 	if err != nil {
 		return "", err
@@ -173,7 +173,7 @@ func (ep *dsExtendedPeerstore) Close() error {
 	return nil
 }
 
-func (ep *dsExtendedPeerstore) GetAllData(id peer.ID) *eth2peerstore.PeerAllData {
+func (ep *dsExtendedPeerstore) GetAllData(ctx context.Context, id peer.ID) (*eth2peerstore.PeerAllData, error) {
 	pub := ep.PubKey(id)
 	secpKey := (pub).(*ic.Secp256k1PublicKey)
 	keyBytes, err := secpKey.Raw()
@@ -185,11 +185,21 @@ func (ep *dsExtendedPeerstore) GetAllData(id peer.ID) *eth2peerstore.PeerAllData
 	nodeID := enode.PubkeyToIDV4((*ecdsa.PublicKey)(secpKey))
 	protocols, err := ep.GetProtocols(id)
 	if err != nil {
-		fmt.Printf("couldn't get protocols: %v\n", err)
+		return nil, fmt.Errorf("couldn't get protocols: %v\n", err)
 	}
-	userAgent, _ := ep.UserAgent(id)
-	protVersion, _ := ep.ProtocolVersion(id)
-	seq, _ := ep.ClaimedSeq(id)
+	userAgent, err := ep.UserAgent(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("couldn't get user agent: %v\n", err)
+	}
+	protVersion, err := ep.ProtocolVersion(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("couldn't get protocol version: %v\n", err)
+	}
+	seq, err := ep.ClaimedSeq(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("couldn't get claimed seq nr: %v\n", err)
+	}
+
 	var multiAddrs []string
 	for _, addr := range ep.Addrs(id) {
 		multiAddrs = append(multiAddrs, addr.String())
@@ -200,7 +210,10 @@ func (ep *dsExtendedPeerstore) GetAllData(id peer.ID) *eth2peerstore.PeerAllData
 	var nextForkVersion *common.Version
 	var nextForkEpoch *common.Epoch
 
-	en := ep.LatestENR(id)
+	en, err := ep.LatestENR(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("couldn't get latest ENR: %v\n", err)
+	}
 	if en != nil {
 		if dat, exists, err := addrutil.ParseEnrEth2Data(en); err == nil && exists {
 			forkDigest = &dat.ForkDigest
@@ -210,6 +223,14 @@ func (ep *dsExtendedPeerstore) GetAllData(id peer.ID) *eth2peerstore.PeerAllData
 		if dat, exists, err := addrutil.ParseEnrAttnets(en); err == nil && exists {
 			enrAttnets = dat
 		}
+	}
+	metadata, err := ep.Metadata(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("couldn't get metadata: %v\n", err)
+	}
+	status, err := ep.Status(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("couldn't get status: %v\n", err)
 	}
 	return &eth2peerstore.PeerAllData{
 		PeerID:          id,
@@ -224,9 +245,9 @@ func (ep *dsExtendedPeerstore) GetAllData(id peer.ID) *eth2peerstore.PeerAllData
 		NextForkVersion: nextForkVersion,
 		NextForkEpoch:   nextForkEpoch,
 		Attnets:         enrAttnets,
-		MetaData:        ep.Metadata(id),
+		MetaData:        metadata,
 		ClaimedSeq:      seq,
-		Status:          ep.Status(id),
+		Status:          status,
 		ENR:             en,
-	}
+	}, nil
 }

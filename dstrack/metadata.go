@@ -2,6 +2,7 @@ package dstrack
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"fmt"
 	ds "github.com/ipfs/go-datastore"
@@ -40,9 +41,9 @@ func NewMetadataBook(store ds.Datastore) (*dsMetadataBook, error) {
 	}, nil
 }
 
-func (mb *dsMetadataBook) loadMetadata(p peer.ID) (*common.MetaData, error) {
+func (mb *dsMetadataBook) loadMetadata(ctx context.Context, p peer.ID) (*common.MetaData, error) {
 	key := peerIdToKey(eth2Base, p).Child(metadataSuffix)
-	value, err := mb.ds.Get(key)
+	value, err := mb.ds.Get(ctx, key)
 	if err != nil {
 		return nil, fmt.Errorf("error while fetching metadata from datastore for peer %s: %s\n", p.Pretty(), err)
 	}
@@ -53,22 +54,22 @@ func (mb *dsMetadataBook) loadMetadata(p peer.ID) (*common.MetaData, error) {
 	return &md, nil
 }
 
-func (mb *dsMetadataBook) storeMetadata(p peer.ID, md *common.MetaData) error {
+func (mb *dsMetadataBook) storeMetadata(ctx context.Context, p peer.ID, md *common.MetaData) error {
 	key := peerIdToKey(eth2Base, p).Child(metadataSuffix)
 	size := md.FixedLength()
 	out := bytes.NewBuffer(make([]byte, 0, size))
 	if err := md.Serialize(codec.NewEncodingWriter(out)); err != nil {
 		return fmt.Errorf("failed encode metadata bytes for datastore: %v", err)
 	}
-	if err := mb.ds.Put(key, out.Bytes()); err != nil {
+	if err := mb.ds.Put(ctx, key, out.Bytes()); err != nil {
 		return fmt.Errorf("failed to store metadata: %v", err)
 	}
 	return nil
 }
 
-func (mb *dsMetadataBook) loadClaim(p peer.ID) (common.SeqNr, error) {
+func (mb *dsMetadataBook) loadClaim(ctx context.Context, p peer.ID) (common.SeqNr, error) {
 	key := peerIdToKey(eth2Base, p).Child(claimSuffix)
-	value, err := mb.ds.Get(key)
+	value, err := mb.ds.Get(ctx, key)
 	if err != nil {
 		return 0, fmt.Errorf("error while fetching claim seq nr from datastore for peer %s: %s\n", p.Pretty(), err)
 	}
@@ -76,84 +77,84 @@ func (mb *dsMetadataBook) loadClaim(p peer.ID) (common.SeqNr, error) {
 	return claim, nil
 }
 
-func (mb *dsMetadataBook) storeClaim(p peer.ID, claim common.SeqNr) error {
+func (mb *dsMetadataBook) storeClaim(ctx context.Context, p peer.ID, claim common.SeqNr) error {
 	key := peerIdToKey(eth2Base, p).Child(claimSuffix)
 	var dat [8]byte
 	binary.LittleEndian.PutUint64(dat[:], uint64(claim))
-	if err := mb.ds.Put(key, dat[:]); err != nil {
+	if err := mb.ds.Put(ctx, key, dat[:]); err != nil {
 		return fmt.Errorf("failed to store claim seq nr: %v", err)
 	}
 	return nil
 }
 
-func (mb *dsMetadataBook) Metadata(id peer.ID) *common.MetaData {
+func (mb *dsMetadataBook) Metadata(ctx context.Context, id peer.ID) (*common.MetaData, error) {
 	mb.Lock()
 	defer mb.Unlock()
-	return mb.metadata(id)
+	return mb.metadata(ctx, id)
 }
 
-func (mb *dsMetadataBook) metadata(id peer.ID) *common.MetaData {
+func (mb *dsMetadataBook) metadata(ctx context.Context, id peer.ID) (*common.MetaData, error) {
 	dat, ok := mb.metadatas[id]
 	if !ok {
-		md, err := mb.loadMetadata(id)
+		md, err := mb.loadMetadata(ctx, id)
 		if err != nil {
-			return nil
+			return nil, err
 		}
 		mb.metadatas[id] = *md
-		return md
+		return md, nil
 	}
-	return &dat
+	return &dat, nil
 }
 
-func (mb *dsMetadataBook) ClaimedSeq(id peer.ID) (seq common.SeqNr, ok bool) {
+func (mb *dsMetadataBook) ClaimedSeq(ctx context.Context, id peer.ID) (seq common.SeqNr, err error) {
 	mb.Lock()
 	defer mb.Unlock()
-	return mb.claimedSeq(id)
+	return mb.claimedSeq(ctx, id)
 }
 
-func (mb *dsMetadataBook) claimedSeq(id peer.ID) (seq common.SeqNr, ok bool) {
+func (mb *dsMetadataBook) claimedSeq(ctx context.Context, id peer.ID) (seq common.SeqNr, err error) {
 	dat, ok := mb.claims[id]
 	if !ok {
-		n, err := mb.loadClaim(id)
+		n, err := mb.loadClaim(ctx, id)
 		if err != nil {
-			return 0, false
+			return 0, err
 		}
 		mb.claims[id] = n
-		return n, true
+		return n, nil
 	}
-	return dat, true
+	return dat, nil
 }
 
 // RegisterSeqClaim updates the latest supposed seq nr of the peer
-func (mb *dsMetadataBook) RegisterSeqClaim(id peer.ID, seq common.SeqNr) (newer bool) {
+func (mb *dsMetadataBook) RegisterSeqClaim(ctx context.Context, id peer.ID, seq common.SeqNr) (newer bool, err error) {
 	mb.Lock()
 	defer mb.Unlock()
-	dat, ok := mb.claimedSeq(id)
-	newer = !ok || dat < seq
+	dat, err := mb.claimedSeq(ctx, id)
+	newer = err != nil || dat < seq
 	if newer {
 		mb.claims[id] = seq
-		_ = mb.storeClaim(id, seq)
+		err = mb.storeClaim(ctx, id, seq)
 	}
 	return
 }
 
 // RegisterMetaFetch increments how many times we tried to get the peer metadata
 // without satisfying answer, returning the counter.
-func (mb *dsMetadataBook) RegisterMetaFetch(id peer.ID) uint64 {
+func (mb *dsMetadataBook) RegisterMetaFetch(ctx context.Context, id peer.ID) (uint64, error) {
 	mb.Lock()
 	defer mb.Unlock()
 	count, _ := mb.fetches[id]
 	count += 1
 	mb.fetches[id] = count
-	return count
+	return count, nil
 }
 
 // RegisterMetadata updates metadata, if newer than previous. Resetting ongoing fetch counter if it's new enough
-func (mb *dsMetadataBook) RegisterMetadata(id peer.ID, md common.MetaData) (newer bool) {
+func (mb *dsMetadataBook) RegisterMetadata(ctx context.Context, id peer.ID, md common.MetaData) (newer bool, err error) {
 	mb.Lock()
 	defer mb.Unlock()
-	dat := mb.metadata(id)
-	newer = dat == nil || dat.SeqNumber < md.SeqNumber
+	dat, err := mb.metadata(ctx, id)
+	newer = dat == nil || err != nil || dat.SeqNumber < md.SeqNumber
 	if newer {
 		// will 0 if no claim
 		claimed, _ := mb.claims[id]
@@ -162,27 +163,31 @@ func (mb *dsMetadataBook) RegisterMetadata(id peer.ID, md common.MetaData) (newe
 			mb.fetches[id] = 0
 		}
 		mb.metadatas[id] = md
-		_ = mb.storeMetadata(id, &md)
+		err := mb.storeMetadata(ctx, id, &md)
+		if err != nil {
+			return true, err
+		}
 		if md.SeqNumber > claimed {
 			mb.claims[id] = md.SeqNumber
-			_ = mb.storeClaim(id, md.SeqNumber)
+			err := mb.storeClaim(ctx, id, md.SeqNumber)
+			return true, err
 		}
 	}
 	return
 }
 
-func (mb *dsMetadataBook) flush() error {
+func (mb *dsMetadataBook) flush(ctx context.Context) error {
 	mb.RLock()
 	defer mb.RUnlock()
 	// store all claims to datastore before exiting
 	for id, cl := range mb.claims {
-		if err := mb.storeClaim(id, cl); err != nil {
+		if err := mb.storeClaim(ctx, id, cl); err != nil {
 			return err
 		}
 	}
 	// store all metadatas to datastore before exiting
 	for id, md := range mb.metadatas {
-		if err := mb.storeMetadata(id, &md); err != nil {
+		if err := mb.storeMetadata(ctx, id, &md); err != nil {
 			return err
 		}
 	}
@@ -190,5 +195,5 @@ func (mb *dsMetadataBook) flush() error {
 }
 
 func (mb *dsMetadataBook) Close() error {
-	return mb.flush()
+	return mb.flush(context.Background())
 }

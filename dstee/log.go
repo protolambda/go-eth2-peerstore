@@ -2,12 +2,12 @@ package dstee
 
 import (
 	"encoding/hex"
+	"github.com/ethereum/go-ethereum/log"
 	ds "github.com/ipfs/go-datastore"
-	"github.com/sirupsen/logrus"
 )
 
 type LogTee struct {
-	Log logrus.FieldLogger
+	Log log.Logger
 	// TODO: maybe an option to customize used log level?
 }
 
@@ -16,18 +16,16 @@ func (t *LogTee) String() string {
 }
 
 func (t *LogTee) OnPut(key ds.Key, value []byte) {
-	t.Log.WithFields(logrus.Fields{
-		"op":    "put",
-		"key":   key.String(),
-		"value": hex.EncodeToString(value),
-	}).Info("put")
+	t.Log.Info("put",
+		"op", "put",
+		"key", key.String(),
+		"value", hex.EncodeToString(value))
 }
 
 func (t *LogTee) OnDelete(key ds.Key) {
-	t.Log.WithFields(logrus.Fields{
-		"op":  "del",
-		"key": key.String(),
-	}).Info("delete")
+	t.Log.Info("delete",
+		"op", "del",
+		"key", key.String())
 }
 
 func (t *LogTee) OnBatch(puts []BatchItem, deletes []ds.Key) {

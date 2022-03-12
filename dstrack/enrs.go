@@ -1,11 +1,12 @@
 package dstrack
 
 import (
+	"context"
 	"fmt"
+	"github.com/ethereum/go-ethereum/p2p/enode"
+	"github.com/ethereum/go-ethereum/p2p/enr"
 	ds "github.com/ipfs/go-datastore"
 	"github.com/libp2p/go-libp2p-core/peer"
-	"github.com/protolambda/go-enode"
-	"github.com/protolambda/go-enr"
 	"github.com/protolambda/go-eth2-peerstore"
 	"github.com/protolambda/go-eth2-peerstore/addrutil"
 )
@@ -28,9 +29,9 @@ func NewENRBook(store ds.Datastore) (*dsENRBook, error) {
 	return &dsENRBook{ds: store}, nil
 }
 
-func (eb *dsENRBook) loadEnr(p peer.ID) (*enode.Node, error) {
+func (eb *dsENRBook) loadEnr(ctx context.Context, p peer.ID) (*enode.Node, error) {
 	key := peerIdToKey(eth2Base, p).Child(enrSuffix)
-	value, err := eb.ds.Get(key)
+	value, err := eb.ds.Get(ctx, key)
 	if err != nil {
 		return nil, fmt.Errorf("error while fetching enr from datastore for peer %s: %s\n", p.Pretty(), err)
 	}
@@ -41,9 +42,9 @@ func (eb *dsENRBook) loadEnr(p peer.ID) (*enode.Node, error) {
 	return enode.New(validSchemesForDB, rec)
 }
 
-func (eb *dsENRBook) storeEnr(p peer.ID, n *enode.Node) error {
+func (eb *dsENRBook) storeEnr(ctx context.Context, p peer.ID, n *enode.Node) error {
 	key := peerIdToKey(eth2Base, p).Child(enrSuffix)
-	if err := eb.ds.Put(key, []byte(n.String())); err != nil {
+	if err := eb.ds.Put(ctx, key, []byte(n.String())); err != nil {
 		return fmt.Errorf("failed to store enr: %v", err)
 	}
 	return nil
@@ -52,10 +53,10 @@ func (eb *dsENRBook) storeEnr(p peer.ID, n *enode.Node) error {
 // Update the record tracking of the peer,
 // return updated=true if the node is new, or it overrides a previously seen node (by higher seq nr).
 // and return eth2 and attnet data, if any.
-func (eb *dsENRBook) UpdateENRMaybe(id peer.ID, n *enode.Node) (updated bool, err error) {
-	old, err := eb.loadEnr(id)
+func (eb *dsENRBook) UpdateENRMaybe(ctx context.Context, id peer.ID, n *enode.Node) (updated bool, err error) {
+	old, err := eb.loadEnr(ctx, id)
 	if err != nil || old.Seq() < n.Seq() {
-		if err := eb.storeEnr(id, n); err != nil {
+		if err := eb.storeEnr(ctx, id, n); err != nil {
 			return false, err
 		}
 		return true, nil
@@ -63,10 +64,6 @@ func (eb *dsENRBook) UpdateENRMaybe(id peer.ID, n *enode.Node) (updated bool, er
 	return false, nil
 }
 
-func (eb *dsENRBook) LatestENR(id peer.ID) (n *enode.Node) {
-	n, err := eb.loadEnr(id)
-	if err != nil {
-		return nil
-	}
-	return n
+func (eb *dsENRBook) LatestENR(ctx context.Context, id peer.ID) (n *enode.Node, err error) {
+	return eb.loadEnr(ctx, id)
 }

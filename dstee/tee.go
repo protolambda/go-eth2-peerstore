@@ -1,6 +1,7 @@
 package dstee
 
 import (
+	"context"
 	ds "github.com/ipfs/go-datastore"
 )
 
@@ -28,24 +29,24 @@ type DSTee struct {
 	Tee Tee
 }
 
-func (t *DSTee) Put(key ds.Key, value []byte) error {
-	if err := t.Batching.Put(key, value); err != nil {
+func (t *DSTee) Put(ctx context.Context, key ds.Key, value []byte) error {
+	if err := t.Batching.Put(ctx, key, value); err != nil {
 		return err
 	}
 	t.Tee.OnPut(key, value)
 	return nil
 }
 
-func (t *DSTee) Delete(key ds.Key) error {
-	if err := t.Batching.Delete(key); err != nil {
+func (t *DSTee) Delete(ctx context.Context, key ds.Key) error {
+	if err := t.Batching.Delete(ctx, key); err != nil {
 		return err
 	}
 	t.Tee.OnDelete(key)
 	return nil
 }
 
-func (t *DSTee) Batch() (ds.Batch, error) {
-	b, err := t.Batching.Batch()
+func (t *DSTee) Batch(ctx context.Context) (ds.Batch, error) {
+	b, err := t.Batching.Batch(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -59,24 +60,24 @@ type DSTeeBatch struct {
 	deletes []ds.Key
 }
 
-func (b *DSTeeBatch) Put(key ds.Key, value []byte) error {
-	if err := b.Batch.Put(key, value); err != nil {
+func (b *DSTeeBatch) Put(ctx context.Context, key ds.Key, value []byte) error {
+	if err := b.Batch.Put(ctx, key, value); err != nil {
 		return err
 	}
 	b.puts = append(b.puts, BatchItem{key, value})
 	return nil
 }
 
-func (b *DSTeeBatch) Delete(key ds.Key) error {
-	if err := b.Batch.Delete(key); err != nil {
+func (b *DSTeeBatch) Delete(ctx context.Context, key ds.Key) error {
+	if err := b.Batch.Delete(ctx, key); err != nil {
 		return err
 	}
 	b.deletes = append(b.deletes, key)
 	return nil
 }
 
-func (b *DSTeeBatch) Commit() error {
-	if err := b.Batch.Commit(); err != nil {
+func (b *DSTeeBatch) Commit(ctx context.Context) error {
+	if err := b.Batch.Commit(ctx); err != nil {
 		return err
 	}
 	b.Tee.OnBatch(b.puts, b.deletes)
